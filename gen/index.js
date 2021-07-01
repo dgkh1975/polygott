@@ -37,8 +37,11 @@ const env = {
 	LC_ALL: 'en_US.UTF-8',
 	LD_LIBRARY_PATH: '/home/runner/.apt/usr/lib/x86_64-linux-gnu:/home/runner/.apt/usr/lib/i386-linux-gnu:/usr/local/lib:/home/runner/.apt/usr/lib',
 	LIBRARY_PATH: '/home/runner/.apt/usr/lib/x86_64-linux-gnu:/home/runner/.apt/usr/lib/i386-linux-gnu:/usr/local/lib:/home/runner/.apt/usr/lib',
-	PATH: '/usr/local/go/bin:/opt/virtualenvs/python3/bin:/usr/GNUstep/System/Tools:/usr/GNUstep/Local/Tools:/home/runner/.apt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-	PKG_CONFIG_PATH: '/home/runner/.apt/usr/lib/x86_64-linux-gnu/pkgconfig:/home/runner/.apt/usr/lib/i386-linux-gnu/pkgconfig:/home/runner/.apt/usr/lib/pkgconfig',
+	PATH: '/home/runner/.nix-profile/bin:/usr/local/go/bin:/opt/virtualenvs/python3/bin:/usr/GNUstep/System/Tools:/usr/GNUstep/Local/Tools:/home/runner/.apt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+	NIX_SSL_CERT_FILE: '/etc/ssl/certs/ca-certificates.crt',
+	NIX_PATH: '/home/runner/.nix-defexpr/channels',
+	NIX_PROFILES: '/nix/var/nix/profiles/default /home/runner/.nix-profile',
+	PKG_CONFIG_PATH: '/home/runner/.apt/usr/lib/x86_64-linux-gnu/pkgconfig:/home/runner/.apt/usr/lib/i386-linux-gnu/pkgconfig:/home/runner/.apt/usr/lib/pkgconfig:/home/runner/.apt/usr/share/pkgconfig',
 	PYTHONPATH: '/opt/virtualenvs/python3/lib/python3.8/site-packages',
 	USER: 'runner',
 	VIRTUAL_ENV: '/opt/virtualenvs/python3',
@@ -52,7 +55,11 @@ const languageIds = glob
 const languageInfo = languageIds
 	.map(languageId => {
 		const filepath = path.join(base, "languages", `${languageId}.toml`);
-		const info = toml.parse(fs.readFileSync(filepath, 'utf8'));
+		const info = toml.parse(
+			fs
+				.readFileSync(filepath, 'utf8')
+				.replace(/\r\n/g, '\n')
+		);
 
 		const result = tv4.validateMultiple(info, schema);
 		if (!result.valid) {
@@ -200,6 +207,7 @@ let lpad = (s, n) => s + new Array(n - s.length).fill(" ").join("");
 
 let ctx = {
 	basePackages,
+	languageInfo,
 	languages,
 	btoa,
 	lbypop,
@@ -219,9 +227,10 @@ let objects = {
 	"test.sh": "tests.ejs",
 	"self-test": "self-test.ejs",
 	"phase0.sh": "phase0.ejs",
-	"phase1.sh": "phase1.ejs",
-	"phase2.sh": "phase2.ejs",
 	"Dockerfile": "Dockerfile.ejs",
+	"Dockerfile.splice": "Dockerfile.splice.ejs",
+	"languages.d": "languages.d.ejs",
+	"languages.json": "languages.json.ejs",
 	"run-project": "run-project.ejs",
 	"run-language-server": "run-language-server.ejs",
 	"detect-language": "detect-language.ejs",
@@ -234,7 +243,11 @@ for (let target in objects) {
 	let tp = path.join(dest, target);
 	fs.writeFileSync(
 		tp,
-		ejs.compile(fs.readFileSync(path.join(__dirname, objects[target]), "utf8"))(
+		ejs.compile(
+			fs
+				.readFileSync(path.join(__dirname, objects[target]), "utf8")
+				.replace(/\r\n/g, '\n')
+		)(
 			ctx
 		),
 		"utf8"
@@ -244,6 +257,7 @@ for (let target in objects) {
 
 const perLangScripts = [
 	'self-test',
+	'phase2',
 ];
 
 for (const perLangScript of perLangScripts) {
@@ -254,10 +268,12 @@ for (const perLangScript of perLangScripts) {
 		fs.writeFileSync(
 			scriptPath,
 			ejs.compile(
-				fs.readFileSync(
-					path.join(__dirname, `${perLangScript}-per-lang.ejs`),
-					'utf8',
-				),
+				fs
+					.readFileSync(
+						path.join(__dirname, `${perLangScript}-per-lang.ejs`),
+						'utf8',
+					)
+					.replace(/\r\n/g, '\n')
 			)(
 				{
 					...ctx,
